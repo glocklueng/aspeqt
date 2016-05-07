@@ -142,7 +142,8 @@ DISTFILES += \
     android/src/com/hoho/android/usbserial/driver/UsbSerialRuntimeException.java \
     android/src/net/greblus/SerialActivity.java \
     android/src/net/greblus/SimpleFileDialog.java \
-    android/res/xml/device_filter.xml
+    android/res/xml/device_filter.xml \
+    android/res/xml/accessory_filter.xml
 
 
 
