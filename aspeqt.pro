@@ -143,7 +143,8 @@ DISTFILES += \
     android/src/net/greblus/SerialActivity.java \
     android/src/net/greblus/SimpleFileDialog.java \
     android/res/xml/device_filter.xml \
-    android/res/xml/accessory_filter.xml
+    android/res/xml/accessory_filter.xml \
+    android/src/net/greblus/FT311UARTInterface.java
 
 
 
