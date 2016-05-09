@@ -50,7 +50,7 @@ public class SerialActivity extends QtActivity
         private static UsbSerialDriver driver;
         private static UsbSerialPort sPort;
         public static native void sendBufAddr(ByteBuffer buf);
-        private static boolean debug = false;
+        private static boolean debug = true;
         public static String m_chosen;
         private static int m_filter;
         private static String m_action;
@@ -107,6 +107,14 @@ public class SerialActivity extends QtActivity
                 s_activity = null;
                 closeDevice();
 	}
+
+        @Override
+        protected void onResume()
+        {
+                super.onResume();
+                uartInterface.ResumeAccessory();
+        }
+
 
         public void fileChooser()
         {
@@ -251,17 +259,9 @@ public class SerialActivity extends QtActivity
         bbuf.position(total);
         int ret = 0; int[] rd = new int[1];
 
-//        try {
-            do {
-                 uartInterface.ReadData(size, rb, rd);
-                 //rd = sPort.sread(rb, size, 5000);
-                 bbuf.put(rb, 0, rd[0]);
-                 size -= rd[0]; ret += rd[0];
-            } while (size > 0);
-//        } catch (IOException e) {
-//           Log.i("USB", "Can't read");
-//        }
-        return ret;
+        uartInterface.ReadData(size, rb, rd);
+        bbuf.put(rb, 0, rd[0]);
+        return size;
     }
 
     public static int write(int size, int total) {
@@ -269,52 +269,19 @@ public class SerialActivity extends QtActivity
         bbuf.position(total);
         bbuf.get(wb, 0, size);
 
-//        try {
-            do {
-                uartInterface.SendData(size, wb);
-                wn = size;
-                //wn = sPort.swrite(wb, size, 5000);
-                size -= wn; ret += wn;
-            } while (size > 0);
-//        } catch (IOException e) {
-//           Log.i("USB", "Can't write");
-//        }
-        return ret;
+        uartInterface.SendData(size, wb);
+        return size;
     }
 
     public static boolean purge() {
-//        boolean ret;
-//        try {
-//            ret = sPort.purgeHwBuffers(true, true);
-//        } catch (IOException e) {
-//            Log.i("USB", "Can't purge");
-//            ret = false;
-//        }
-//        if (debug) Log.i("USB", "purge: " + ret);
         return true;
     }
 
     public static boolean purgeTX() {
-//        boolean ret;
-//        try {
-//            ret = sPort.purgeHwBuffers(false, true);
-//        } catch (IOException e) {
-//            Log.i("USB", "Can't purge TX buffer");
-//            ret = false;
-//        }
-//        if (debug) Log.i("USB", "purgeTX: " + ret);
         return true;
     }
 
     public static boolean purgeRX() {
-//        boolean ret;
-//        try {
-//            ret = sPort.purgeHwBuffers(true, false);
-//        } catch (IOException e) {
-//            Log.i("USB", "Can't purge RX buffer");
-//            ret = false;
-//       }
-//        if (debug) Log.i("USB", "purgeRX: " + ret);
         return true;
     }
 
@@ -324,21 +291,6 @@ public class SerialActivity extends QtActivity
 
     public static int getModemStatus() {
         int ret = -2;
-//        try {
-//            ret = sPort.getStatus();
-//        } catch (IOException e) {
-//            Log.i("USB", "Can't get modem status");
-//            ret = -1;
-//        }
-//        if (debug) {
-//            counter +=1;
-//            if (counter < 3) {
-//                Log.i("USB", "getModemStatus: " + ret);
-//            } else {
-//                 if (counter == 3 ) Log.i("USB", "getModemStatus called too many times!");
-//                 if (counter > 50000) counter = 0;
-//            }
-//        }
         return ret;
     }
 

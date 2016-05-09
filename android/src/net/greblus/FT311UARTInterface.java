@@ -78,7 +78,7 @@ public class FT311UARTInterface extends Activity
 		IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
                 filter.addAction(UsbManager.ACTION_USB_ACCESSORY_ATTACHED);
 		filter.addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED);
-		context.registerReceiver(mUsbReceiver, filter);
+                context.registerReceiver(USBReceiver, filter);
 
 		inputstream = null;
 		outputstream = null;
@@ -238,14 +238,14 @@ public class FT311UARTInterface extends Activity
 			accessory_attached = true;
 
 			if (usbmanager.hasPermission(accessory)) {
-                                Log.i("USB", "Already have USB permission!");
+                                Toast.makeText(global_context, "USB Permission Already Present", Toast.LENGTH_SHORT).show();
 				OpenAccessory(accessory);
 			} 
 			else
 			{
-				synchronized (mUsbReceiver) {
+                                synchronized (USBReceiver) {
 					if (!mPermissionRequestPending) {
-                                                Log.i("USB", "Request USB Permission");
+                                                Toast.makeText(global_context, "Requested USB Permission", Toast.LENGTH_SHORT).show();
 						usbmanager.requestPermission(accessory,
 								mPermissionIntent);
 						mPermissionRequestPending = true;
@@ -359,7 +359,7 @@ public class FT311UARTInterface extends Activity
 	}
 
 	/***********USB broadcast receiver*******************************************/
-	private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() 
+        private final BroadcastReceiver USBReceiver = new BroadcastReceiver()
 	{
 		@Override
 		public void onReceive(Context context, Intent intent) 
