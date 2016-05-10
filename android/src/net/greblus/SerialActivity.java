@@ -4,6 +4,7 @@ import java.lang.System;
 import android.widget.Toast;
 import android.os.Bundle;
 import java.lang.String;
+import java.lang.Thread;
 import java.util.List;
 import android.util.Log;
 
@@ -36,25 +37,18 @@ import net.greblus.FT311UARTInterface;
 
 public class SerialActivity extends QtActivity
 {
-        private static int devCount = 0;
-        private static UsbManager manager;
-        private static PendingIntent pintent;
-        private static final String ACTION_USB_PERMISSION =
-            "com.android.example.USB_PERMISSION";
         private static ByteBuffer bbuf = ByteBuffer.allocateDirect(4096);
         private static byte rb[] = new byte [4096];
         private static byte wb[] = new byte [4096];
         private static byte t[] = new byte [4096];
         private static int counter;
-        private static UsbDevice device = null;
-        private static UsbSerialDriver driver;
-        private static UsbSerialPort sPort;
         public static native void sendBufAddr(ByteBuffer buf);
         private static boolean debug = true;
         public static String m_chosen;
         private static int m_filter;
         private static String m_action;
         private static FT311UARTInterface uartInterface;
+        private static int tmt = 10;
 
         public static SerialActivity s_activity = null;
 
@@ -63,14 +57,17 @@ public class SerialActivity extends QtActivity
  	{
 		s_activity = this;
                 super.onCreate(savedInstanceState);
-
-                manager = (UsbManager)getSystemService(Context.USB_SERVICE);
-                pintent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
-                registerBroadcastReceiver();
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
                 sendBufAddr(bbuf);
                 uartInterface = new FT311UARTInterface(this, null);
+
+                int baudRate = 19200; /*baud rate*/
+                byte stopBit = 1; /*1:1stop bits, 2:2 stop bits*/
+                byte dataBit = 8; /*8:8bit, 7: 7bit*/
+                byte parity = 0;  /* 0: none, 1: odd, 2: even, 3: mark, 4: space*/
+                byte flowControl = 0; /*0:none, 1: flow control(CTS,RTS)*/
+                uartInterface.SetConfig(baudRate, dataBit, stopBit, parity, flowControl);
         }
 
        @Override
@@ -164,92 +161,21 @@ public class SerialActivity extends QtActivity
         }
 
         public static int openDevice() {
-
-//            HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
-//            Iterator<UsbDevice> deviceIterator = deviceList.values().iterator();
-
-//            if (!deviceIterator.hasNext())
-//                return 0;
-
-//                int dev_pid, dev_vid;
-//                boolean dev_found = false;
-//                 do {
-//                     device = deviceIterator.next();
-//                     dev_pid = device.getProductId();
-//                     dev_vid = device.getVendorId();
-//                     if ((dev_vid == 1027) &&
-//                        (
-//                          (dev_pid == 24577) || //Lotharek's Sio2PC-USB
-//                          (dev_pid == 33712) || //Ray's Sio2USB-1050PC
-//                          (dev_pid == 33713) ||
-//                          (dev_pid == 24597)    //Ray's Sio2PC-USB
-//                        )
-//                    ) { dev_found = true; break; }
-
-//                     if ((dev_vid  == 1659) && (dev_pid == 8963)) //PL2303
-//                        { dev_found = true; break;}
-
-//            } while (deviceIterator.hasNext());
-
-//            if (dev_found)
-//                manager.requestPermission(device, pintent);
-//            else
-//                return 0;
-
-//            List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
-
-//            if (availableDrivers.isEmpty()) {
-//                Log.i("USB", "No drivers found for attached usb devices");
-//                return 0;
-//            }
-
-//            Log.i("USB", "Driver found for attached usb device");
-//            driver = availableDrivers.get(0);
-
-//            UsbDeviceConnection connection = manager.openDevice(device);
-
-//            sPort = driver.getPorts().get(0);
-
-//            try {
-//                sPort.open(connection);
-//                sPort.setParameters(19200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
-//            } catch (IOException e) {
-//                Log.i("USB", "Can't open port");
-//                return -1;
-//            }
-//            Log.i("USB", "Device opened");
-
-            int baudRate = 19200; /*baud rate*/
-            byte stopBit = 1; /*1:1stop bits, 2:2 stop bits*/
-            byte dataBit = 8; /*8:8bit, 7: 7bit*/
-            byte parity = 0;  /* 0: none, 1: odd, 2: even, 3: mark, 4: space*/
-            byte flowControl = 0; /*0:none, 1: flow control(CTS,RTS)*/
-            uartInterface.SetConfig(baudRate, dataBit, stopBit, parity, flowControl);
+            uartInterface.ResumeAccessory();
             return 1;
        }
 
      public static void closeDevice() {
-//         try {
-//           if (sPort != null)
-//                sPort.close();
-//         } catch (IOException e) {
-//                Log.i("USB", "Can't close port");
-//        }
+            uartInterface.DestroyAccessory(true);
      }
 
      public static int setSpeed(int speed) {
-         int ret = 0;
-//         try {
-//            ret = sPort.setBaudRate(speed);
-//         } catch (IOException e) {
-//           Log.i("USB", "Can't set speed");
-//         }
-//         if (debug) Log.i("USB", "setBaudrate: " + ret);
-        //int baudRate = 19200; /*baud rate*/
+
         byte stopBit = 1; /*1:1stop bits, 2:2 stop bits*/
         byte dataBit = 8; /*8:8bit, 7: 7bit*/
         byte parity = 0;  /* 0: none, 1: odd, 2: even, 3: mark, 4: space*/
         byte flowControl = 0; /*0:none, 1: flow control(CTS,RTS)*/
+
         uartInterface.SetConfig(speed, dataBit, stopBit, parity, flowControl);
         return speed;
      }
@@ -260,6 +186,9 @@ public class SerialActivity extends QtActivity
         int ret = 0; int[] rd = new int[1];
 
         uartInterface.ReadData(size, rb, rd);
+        try { Thread.sleep(tmt); }
+	catch (Exception e) {}
+
         bbuf.put(rb, 0, rd[0]);
         return size;
     }
@@ -270,6 +199,9 @@ public class SerialActivity extends QtActivity
         bbuf.get(wb, 0, size);
 
         uartInterface.SendData(size, wb);
+        try { Thread.sleep(tmt); }
+	catch (Exception e) {}
+	
         return size;
     }
 
@@ -294,7 +226,6 @@ public class SerialActivity extends QtActivity
         return ret;
     }
 
-
     public static int getSWCommandFrame() {
         int expected = 0, sync_attempts = 0, got = 1, total_retries = 0;
         int ret = 0, total = 0;
@@ -308,6 +239,8 @@ public class SerialActivity extends QtActivity
                 if (total_retries > 2) return 2;
                 //try {
                     uartInterface.ReadData(5-total, rb, rd);
+                    try { Thread.sleep(tmt); }
+		    catch (Exception e) {}
                     ret = rd[0];
                     //ret = sPort.sread(rb, 5-total, 5000);
                     if (ret == 5) break;
@@ -339,6 +272,8 @@ public class SerialActivity extends QtActivity
                             //try {
                                 int[] red = new int[1];
                                 uartInterface.ReadData(1, t, red);
+                                try { Thread.sleep(tmt); }
+				catch (Exception e) {}
                                 ret = red[0];
                                 //ret = sPort.sread(t, 1, 5000); }
                             //catch (IOException e) {};
@@ -362,79 +297,6 @@ public class SerialActivity extends QtActivity
             }
          };
          if (debug) Log.i("USB", "got=" + got + " expected= " + expected);
-         return 1;
-    }
-
-    public static int getHWCommandFrame(int mMethod) {
-        int mask, total_retries, status, total, res = 0;
-        boolean ret;
-
-        switch (mMethod) {
-            case 0:
-                mask = 64;
-                break;
-            case 1:
-                mask = 32;
-                break;
-            case 2:
-                mask = 16;
-                break;
-            default:
-                mask = 32; }
-
-        bbuf.position(0);
-        do {
-            status = 0; total_retries = 0;
-            do {
-                if (total_retries > 10e2) return 2;
-                status = getModemStatus();
-                total_retries += 1;
-
-                if (status < 0) {
-                    if (debug) Log.i("USB", "Cannot retrieve serial port status");
-                    return 0;
-                }
-            } while (!((status & mask) > 0));
-
-            ret = purge();
-            if (!ret) if (debug) Log.i("USB", "Cannot clear serial port");
-
-            total = 0; total_retries = 0;
-            do {
-                res = 0;
-                try {
-                    if (total_retries > 4) return 2;
-                    res = sPort.sread(rb, 5-total, 5000); }
-                catch (IOException e) {};
-
-                if (res > 0) {
-                    for (int i=0; i<res; i++) {
-                       if (debug) Log.i("USB", "CF: " + (rb[i] & 0xff));
-                       bbuf.put((byte)(rb[i] & 0xff));
-                       total += 1;
-                    }
-                } else
-                    total_retries++;
-            } while (total<5);
-
-            int expected = (byte) rb[4] & 0xff;
-            int got = sioChecksum(rb, 4);
-
-            if (expected != got) return 2;
-
-            total_retries = 0;
-            do {
-                if (total_retries > 10e2) return 2;
-                status = getModemStatus();
-                total_retries += 1;
-
-                if (status < 0) {
-                    if (debug) Log.i("USB", "Cannot retrieve serial port status");
-                    return 0;
-                }
-            } while ((status & mask) > 0);
-            break;
-         } while (true);
          return 1;
     }
 
