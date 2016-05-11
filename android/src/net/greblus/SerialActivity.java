@@ -55,25 +55,25 @@ public class SerialActivity extends QtActivity
         @Override
 	public void onCreate(Bundle savedInstanceState)
  	{
-		s_activity = this;
-                super.onCreate(savedInstanceState);
-                getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            s_activity = this;
+            super.onCreate(savedInstanceState);
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-                sendBufAddr(bbuf);
-                uartInterface = new FT311UARTInterface(this, null);
+            sendBufAddr(bbuf);
+            uartInterface = new FT311UARTInterface(this, null);
 
-                int baudRate = 19200; /*baud rate*/
-                byte stopBit = 1; /*1:1stop bits, 2:2 stop bits*/
-                byte dataBit = 8; /*8:8bit, 7: 7bit*/
-                byte parity = 0;  /* 0: none, 1: odd, 2: even, 3: mark, 4: space*/
-                byte flowControl = 0; /*0:none, 1: flow control(CTS,RTS)*/
-                uartInterface.SetConfig(baudRate, dataBit, stopBit, parity, flowControl);
+            int baudRate = 19200; /*baud rate*/
+            byte stopBit = 1; /*1:1stop bits, 2:2 stop bits*/
+            byte dataBit = 8; /*8:8bit, 7: 7bit*/
+            byte parity = 0;  /* 0: none, 1: odd, 2: even, 3: mark, 4: space*/
+            byte flowControl = 0; /*0:none, 1: flow control(CTS,RTS)*/
+            uartInterface.SetConfig(baudRate, dataBit, stopBit, parity, flowControl);
         }
 
-       @Override
-       public void onPause() {
-           m_chosen = "Cancelled";
-           super.onPause();
+        @Override
+        public void onPause() {
+            m_chosen = "Cancelled";
+            super.onPause();
         }
 
 
@@ -161,8 +161,8 @@ public class SerialActivity extends QtActivity
         }
 
         public static int openDevice() {
-            uartInterface.ResumeAccessory();
-            return 1;
+            uartInterface.ResumeAccessory();            
+            return (uartInterface.accessory_attached ? 1 : 0);
        }
 
      public static void closeDevice() {
@@ -190,7 +190,7 @@ public class SerialActivity extends QtActivity
 	catch (Exception e) {}
 
         bbuf.put(rb, 0, rd[0]);
-        return size;
+        return rd[0];
     }
 
     public static int write(int size, int total) {
@@ -237,23 +237,21 @@ public class SerialActivity extends QtActivity
             ret = 0; total = 0; total_retries = 0; int[] rd = new int[1];
             do {
                 if (total_retries > 2) return 2;
-                //try {
-                    uartInterface.ReadData(5-total, rb, rd);
-                    try { Thread.sleep(tmt); }
-		    catch (Exception e) {}
-                    ret = rd[0];
-                    //ret = sPort.sread(rb, 5-total, 5000);
-                    if (ret == 5) break;
-                //}
-                //catch (IOException e) {};
+                uartInterface.ReadData(5-total, rb, rd);
+                try { Thread.sleep(tmt); }
+                catch (Exception e) {}
+                ret = rd[0];
+                if (ret == 5) break;
 
                 if ((ret > 0) && (ret < 5)) {
                     System.arraycopy(rb, 0, t, total, ret);
                     prtl = true;
                     total += ret;
                 }
+
                 if ((total == 5) && (prtl == true))
                         System.arraycopy(t, 0, rb, 0, 5);
+
                 if (ret <= 0)
                     total_retries++;
             } while (total<5);
@@ -269,14 +267,11 @@ public class SerialActivity extends QtActivity
                                 rb[i] = rb[i+1];
                         ret = 0;
                         do {
-                            //try {
-                                int[] red = new int[1];
-                                uartInterface.ReadData(1, t, red);
-                                try { Thread.sleep(tmt); }
-				catch (Exception e) {}
-                                ret = red[0];
-                                //ret = sPort.sread(t, 1, 5000); }
-                            //catch (IOException e) {};
+                            int[] red = new int[1];
+                            uartInterface.ReadData(1, t, red);
+                            try { Thread.sleep(tmt); }
+                            catch (Exception e) {}
+                            ret = red[0];
                         } while (ret < 1);
                         rb[4] = t[0];
                 } else
