@@ -31,6 +31,7 @@ import android.content.IntentFilter;
 import android.content.BroadcastReceiver;
 import android.widget.Toast;
 import android.view.WindowManager;
+import net.greblus.FT311UARTInterface;
 
 public class SerialActivity extends QtActivity
 {
@@ -44,6 +45,7 @@ public class SerialActivity extends QtActivity
         private static byte rb[] = new byte [65535];
         private static byte wb[] = new byte [65535];
         private static byte t[] = new byte [1024];
+        private static int r[] = new int [1];
         private static int counter;
         private static UsbDevice device = null;
         private static UsbSerialDriver driver;
@@ -53,6 +55,8 @@ public class SerialActivity extends QtActivity
         public static String m_chosen;
         private static int m_filter;
         private static String m_action;
+        private static boolean ft232_found = false;
+        private static FT311UARTInterface uartInterface;
 
         public static SerialActivity s_activity = null;
 
@@ -68,6 +72,16 @@ public class SerialActivity extends QtActivity
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
                 sendBufAddr(rbuf, wbuf);
+
+                uartInterface = new FT311UARTInterface(this, null);
+
+                int baudRate = 19200; /*baud rate*/
+                byte stopBit = 1; /*1:1stop bits, 2:2 stop bits*/
+                byte dataBit = 8; /*8:8bit, 7: 7bit*/
+                byte parity = 0;  /* 0: none, 1: odd, 2: even, 3: mark, 4: space*/
+                byte flowControl = 0; /*0:none, 1: flow control(CTS,RTS)*/
+
+                uartInterface.SetConfig(baudRate, dataBit, stopBit, parity, flowControl);
         }
 
        @Override
@@ -76,6 +90,13 @@ public class SerialActivity extends QtActivity
            super.onPause();
         }
 
+        @Override
+        protected void onResume()
+        {
+                super.onResume();
+                if (ft232_found)
+                    uartInterface.ResumeAccessory();
+        }
 
         public static void runFileChooser(int filter, int action) {
             m_chosen = "None";
@@ -159,8 +180,7 @@ public class SerialActivity extends QtActivity
             if (!deviceIterator.hasNext())
                 return 0;
 
-                int dev_pid, dev_vid;
-                boolean dev_found = false;
+                int dev_pid, dev_vid;                
                  do {
                      device = deviceIterator.next();
                      dev_pid = device.getProductId();
@@ -172,61 +192,76 @@ public class SerialActivity extends QtActivity
                           (dev_pid == 33713) ||
                           (dev_pid == 24597)    //Ray's Sio2PC-USB
                         )
-                    ) { dev_found = true; break; }
-
-                     if ((dev_vid  == 1659) && (dev_pid == 8963)) //PL2303
-                        { dev_found = true; break;}
+                    ) { ft232_found = true; break; }
 
             } while (deviceIterator.hasNext());
 
-            if (dev_found)
+            if (ft232_found) {
                 manager.requestPermission(device, pintent);
-            else
-                return 0;
+                List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
 
-            List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
+                if (availableDrivers.isEmpty()) {
+                    Log.i("USB", "No drivers found for attached usb devices");
+                    return 0;
+                }
 
-            if (availableDrivers.isEmpty()) {
-                Log.i("USB", "No drivers found for attached usb devices");
-                return 0;
+                Log.i("USB", "Driver found for attached usb device");
+                driver = availableDrivers.get(0);
+
+                UsbDeviceConnection connection = manager.openDevice(device);
+
+                sPort = driver.getPorts().get(0);
+
+                try {
+                    sPort.open(connection);
+                    sPort.setParameters(19200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+                } catch (IOException e) {
+                    Log.i("USB", "Can't open port");
+                    return -1;
+                }
+                Log.i("USB", "Device opened");
+                return 1;
             }
-
-            Log.i("USB", "Driver found for attached usb device");
-            driver = availableDrivers.get(0);
-
-            UsbDeviceConnection connection = manager.openDevice(device);
-
-            sPort = driver.getPorts().get(0);
-
-            try {
-                sPort.open(connection);
-                sPort.setParameters(19200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
-            } catch (IOException e) {
-                Log.i("USB", "Can't open port");
-                return -1;
+            else {
+                uartInterface.ResumeAccessory();
+                return (uartInterface.accessory_attached ? 1 : 0);
             }
-            Log.i("USB", "Device opened");
-            return 1;
        }
 
      public static void closeDevice() {
+         if (ft232_found) {
          try {
            if (sPort != null)
                 sPort.close();
          } catch (IOException e) {
                 Log.i("USB", "Can't close port");
-        }
+           }
+       } else {
+            uartInterface.DestroyAccessory(true);
+         }
      }
 
      public static int setSpeed(int speed) {
-         int ret = 0;
-         try {
-            ret = sPort.setBaudRate(speed);
-         } catch (IOException e) {
-           Log.i("USB", "Can't set speed");
+         if (ft232_found) {
+             int ret = 0;
+             try {
+                    ret = sPort.setBaudRate(speed);
+                    speed = ret;
+                    if (debug) Log.i("USB", "setBaudrate: " + ret);
+             } catch (IOException e) {
+                    Log.i("USB", "Can't set speed");
+             }
          }
-         if (debug) Log.i("USB", "setBaudrate: " + ret);
-       return ret;
+         else
+         {
+             byte stopBit = 1; /*1:1stop bits, 2:2 stop bits*/
+             byte dataBit = 8; /*8:8bit, 7: 7bit*/
+             byte parity = 0;  /* 0: none, 1: odd, 2: even, 3: mark, 4: space*/
+             byte flowControl = 0; /*0:none, 1: flow control(CTS,RTS)*/
+
+             uartInterface.SetConfig(speed, dataBit, stopBit, parity, flowControl);
+         }
+         return speed;
      }
 
     public static int read(int size, int total)
@@ -234,15 +269,23 @@ public class SerialActivity extends QtActivity
         rbuf.position(total);
         int ret = 0, rd = 0;
 
-        try {
+
             do {
-                 rd = sPort.sread(rb, size, 5000);
-                 rbuf.put(rb, 0, rd);
-                 size -= rd; ret += rd;
+                if (ft232_found) {
+                    try {
+                        rd = sPort.sread(rb, size, 5000);
+                    } catch (IOException e) {
+                       Log.i("USB", "Can't read");
+                    }
+                }
+                else {
+                    uartInterface.ReadData(size, rb, r);
+                    rd = r[0];
+                }
+                rbuf.put(rb, 0, rd);
+                size -= rd; ret += rd;
             } while (size > 0);
-        } catch (IOException e) {
-           Log.i("USB", "Can't read");
-        }
+
         return ret;
     }
 
@@ -251,51 +294,67 @@ public class SerialActivity extends QtActivity
         wbuf.position(total);
         wbuf.get(wb, 0, size);
 
-        try {
-            do {
-                wn = sPort.swrite(wb, size, 5000);
-                size -= wn; ret += wn;
-            } while (size > 0);
-        } catch (IOException e) {
-           Log.i("USB", "Can't write");
-        }
+        do {
+            if (ft232_found) {
+                try {
+                    wn = sPort.swrite(wb, size, 5000);
+                } catch (IOException e) {
+                   Log.i("USB", "Can't write");
+                }
+            } else {
+                uartInterface.SendData(size, wb);
+                wn = size;
+            }
+            size -= wn; ret += wn;
+        } while (size > 0);
+
         return ret;
     }
 
     public static boolean purge() {
-        boolean ret;
-        try {
-            ret = sPort.purgeHwBuffers(true, true);
-        } catch (IOException e) {
-            Log.i("USB", "Can't purge");
-            ret = false;
-        }
-        if (debug) Log.i("USB", "purge: " + ret);
+        if (ft232_found) {
+            boolean ret;
+            try {
+                ret = sPort.purgeHwBuffers(true, true);
+            } catch (IOException e) {
+                Log.i("USB", "Can't purge");
+                ret = false;
+            }
+            if (debug) Log.i("USB", "purge: " + ret);
         return ret;
+        }
+        else
+            return true;
     }
 
     public static boolean purgeTX() {
-        boolean ret;
-        try {
-            ret = sPort.purgeHwBuffers(false, true);
-        } catch (IOException e) {
-            Log.i("USB", "Can't purge TX buffer");
-            ret = false;
-        }
-        if (debug) Log.i("USB", "purgeTX: " + ret);
-        return ret;
+        if (ft232_found) {
+            boolean ret;
+            try {
+                ret = sPort.purgeHwBuffers(false, true);
+            } catch (IOException e) {
+                Log.i("USB", "Can't purge TX buffer");
+                ret = false;
+            }
+            if (debug) Log.i("USB", "purgeTX: " + ret);
+            return ret;
+        } else
+            return true;
     }
 
     public static boolean purgeRX() {
-        boolean ret;
-        try {
-            ret = sPort.purgeHwBuffers(true, false);
-        } catch (IOException e) {
-            Log.i("USB", "Can't purge RX buffer");
-            ret = false;
-       }
-        if (debug) Log.i("USB", "purgeRX: " + ret);
-        return ret;
+        if (ft232_found) {
+            boolean ret;
+            try {
+                ret = sPort.purgeHwBuffers(true, false);
+            } catch (IOException e) {
+                Log.i("USB", "Can't purge RX buffer");
+                ret = false;
+           }
+            if (debug) Log.i("USB", "purgeRX: " + ret);
+            return ret;
+        } else
+            return true;
     }
 
     public static void qLog(String msg) {

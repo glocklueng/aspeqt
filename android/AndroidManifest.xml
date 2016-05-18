@@ -1,7 +1,9 @@
 <?xml version="1.0"?>
-<manifest package="org.qtproject.example.AspeQt" xmlns:android="http://schemas.android.com/apk/res/android" android:versionName="1.0" android:versionCode="32" android:installLocation="auto">
+<manifest package="org.qtproject.example.AspeQt" xmlns:android="http://schemas.android.com/apk/res/android" android:versionName="1.0" android:versionCode="34" android:installLocation="auto">
 <uses-feature android:name="android.hardware.usb.host"/>
+<uses-feature android:name="android.hardware.usb.accessory"/>
     <application android:hardwareAccelerated="true" android:name="org.qtproject.qt5.android.bindings.QtApplication" android:label="-- %%INSERT_APP_NAME%% --" android:icon="@drawable/icon">
+      <uses-library android:name="com.android.future.usb.accessory"/>
         <activity android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|locale|fontScale|keyboard|keyboardHidden|navigation" android:name="net.greblus.SerialActivity" android:label="-- %%INSERT_APP_NAME%% --" android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -10,12 +12,19 @@
 
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"/>
+                <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"/>
             </intent-filter>
 
             <receiver android:name="USBReceiver" android:enabled="true">
             </receiver>
 
             <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" android:resource="@xml/device_filter"/>
+
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED"/>
+            </intent-filter>
+
+            <meta-data android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" android:resource="@xml/accessory_filter"/>
 
             <meta-data android:name="android.app.lib_name" android:value="-- %%INSERT_APP_LIB_NAME%% --"/>
             <meta-data android:name="android.app.qt_sources_resource_id" android:resource="@array/qt_sources"/>
